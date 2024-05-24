@@ -14,8 +14,8 @@ app.use('/public', express.static(`${process.cwd()}/public`))
 app.use(express.urlencoded({ extended: true }))
 
 const data = {
-  freecodecamp: { original_url: 'https://freecodecamp.org', short_url: 1 },
-  google: { original_url: 'https://google.com', short_url: 2 },
+  freecodecamp: { original_url: 'https://www.freecodecamp.org', short_url: 1 },
+  google: { original_url: 'https://www.google.com', short_url: 2 },
   forums: { original_url: 'https://forum.freecodecamp.org/', short_url: 3 }
 }
 

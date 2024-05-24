@@ -26,7 +26,7 @@ const urlfilter = url => {
 const isValidUrl = (req, res, next) => {
   const url = req.body.url
   if (!urlfilter(url)) {
-    return res.json({ error: 'invalid url' })
+    return res.status(500).json({ error: 'invalid url' })
   } else {
     next()
   }

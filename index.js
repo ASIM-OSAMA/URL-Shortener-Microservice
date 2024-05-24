@@ -44,11 +44,11 @@ app.post('/api/shorturl', isValidUrl, (req, res) => {
 
     if (isNaN(convert) === true) {
       if (element_original_url === url) {
-        return res.json(element)
+        return res.json({ element })
       }
     }
     if (element_short_url === Number(url)) {
-      return res.json(element)
+      return res.json({ element })
     }
   }
 

@@ -16,11 +16,11 @@ app.use("/public", express.static(`${process.cwd()}/public`));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const data = {
-  freecodecamp: { original_url: "https://freecodecamp.org", short_url: 1 },
-  google: { original_url: "https://www.google.com", short_url: 2 },
-  forums: { original_url: "https://forum.freecodecamp.org/", short_url: 3 },
-};
+// const data = {
+//   freecodecamp: { original_url: "https://freecodecamp.org", short_url: 1 },
+//   google: { original_url: "https://www.google.com", short_url: 2 },
+//   forums: { original_url: "https://forum.freecodecamp.org/", short_url: 3 },
+// };
 
 // -------------
 // Connect to MongoDB
@@ -47,39 +47,25 @@ app.get("/api/hello", function (req, res) {
 });
 
 // Second API
-app.post("/api/shorturl", isValidUrl, (req, res) => {
-  const url = req.body.url;
+app.post(
+  "/api/shorturl",
+  isValidUrl,
+  asyncHandler(async (req, res) => {
+    const url = req.body.url;
 
-  // console.log(Number(url))
-
-  for (const key in data) {
-    const element = data[key];
-    const element_original_url = data[key].original_url;
-    const element_short_url = data[key].short_url;
-
-    const convert = Number(url);
-    // console.log(isNaN(convert))
-
-    if (isNaN(convert) === true) {
-      if (element_original_url === url) {
-        return res.json({
-          original_url: element_original_url,
-          short_url: element_short_url,
-        });
-        // return res.json({ element })
-      }
-    }
-    if (element_short_url === Number(url)) {
-      return res.json({
-        original_url: element_original_url,
-        short_url: element_short_url,
+    // console.log(Number(url))
+    try {
+      const result = await UrlDB.findOne({ original_url: url });
+      res.json({
+        original_url: result.original_url,
+        short_url: result.short_url,
       });
-      // return res.json({ element })
+    } catch (error) {
+      console.log(error);
+      res.json({ error });
     }
-  }
-
-  return res.status(404).json("No Match!");
-});
+  })
+);
 
 // Third API
 app.get("/api/shorturl/:url", (req, res) => {

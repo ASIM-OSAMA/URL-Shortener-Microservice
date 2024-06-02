@@ -1,89 +1,72 @@
-require('dotenv').config()
-const express = require('express')
-const cors = require('cors')
-const isValidUrl = require('./isValid')
-const app = express()
+const express = require("express");
+const mongoose = require("mongoose");
 
-// Basic Configuration
-const port = process.env.PORT || 3000
+const app = express();
+const port = 3000;
 
-app.use(cors())
+// Connect to MongoDB
+mongoose
+  .connect("mongodb://localhost/url-shortener", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log("Connected to MongoDB");
+  })
+  .catch((error) => {
+    console.error("Error connecting to MongoDB:", error);
+  });
 
-app.use('/public', express.static(`${process.cwd()}/public`))
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+// Define the URL model
+const urlSchema = new mongoose.Schema({
+  originalUrl: { type: String, required: true, unique: true },
+  shortUrl: { type: String, required: true, unique: true },
+});
 
-const data = {
-  freecodecamp: { original_url: 'https://freecodecamp.org', short_url: 1 },
-  google: { original_url: 'https://www.google.com', short_url: 2 },
-  forums: { original_url: 'https://forum.freecodecamp.org/', short_url: 3 }
-}
+const Url = mongoose.model("Url", urlSchema);
 
-app.get('/', function (req, res) {
-  res.sendFile(process.cwd() + '/views/index.html')
-})
-
-// Your first API endpoint
-app.get('/api/hello', function (req, res) {
-  res.json({ greeting: 'hello API' })
-})
-
-// Second API
-app.post('/api/shorturl', isValidUrl, (req, res) => {
-  const url = req.body.url
-
-  // console.log(Number(url))
-
-  for (const key in data) {
-    const element = data[key]
-    const element_original_url = data[key].original_url
-    const element_short_url = data[key].short_url
-
-    const convert = Number(url)
-    // console.log(isNaN(convert))
-
-    if (isNaN(convert) === true) {
-      if (element_original_url === url) {
-        return res.json({
-          original_url: element_original_url,
-          short_url: element_short_url
-        })
-        // return res.json({ element })
-      }
-    }
-    if (element_short_url === Number(url)) {
-      return res.json({
-        original_url: element_original_url,
-        short_url: element_short_url
-      })
-      // return res.json({ element })
-    }
-  }
-
-  return res.status(404).json('No Match!')
-})
-
-// Third API
-app.get('/api/shorturl/:url', (req, res) => {
-  url = req.params.url
-  const convert = Number(url)
+// Create a new short URL
+app.post("/new/*", async (req, res) => {
+  const originalUrl = req.body.url;
+  const shortUrl = req.originalUrl.replace("/new/", "");
 
   try {
-    for (const key in data) {
-      const element = data[key]
-      const element_short_url = data[key].short_url
-
-      if (element_short_url === convert) {
-        return res.redirect(element.original_url)
-        // return res.redirect('www.google.com')
-      }
+    // Check if the URL already exists
+    const existingUrl = await Url.findOne({ originalUrl });
+    if (existingUrl) {
+      return res.json({
+        original_url: existingUrl.originalUrl,
+        short_url: existingUrl.shortUrl,
+      });
     }
-    return res.status(404).json('No Match!')
-  } catch (error) {
-    console.log('error')
-  }
-})
 
-app.listen(port, function () {
-  console.log(`Listening on port ${port}`)
-})
+    // Create a new URL document
+    const newUrl = new Url({
+      originalUrl,
+      shortUrl,
+    });
+    await newUrl.save();
+
+    res.json({ original_url: originalUrl, short_url: shortUrl });
+  } catch (error) {
+    console.error("Error creating short URL:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Redirect to the original URL
+app.get("/:shortUrl", async (req, res) => {
+  const shortUrl = req.params.shortUrl;
+
+  try {
+    const url = await Url.findOne({ shortUrl });
+    if (url) {
+      return res.redirect(url.originalUrl);
+    }
+
+    res.status(404).json({ error: "URL not found" });
+  } catch (error) {
+    console.log(error);
+    res.json({ error });
+  }
+});

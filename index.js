@@ -53,6 +53,8 @@ app.post(
   asyncHandler(async (req, res) => {
     const url = req.body.url;
 
+    console.log(url);
+
     // console.log(Number(url))
     try {
       const result = await UrlDB.findOne({ original_url: url });

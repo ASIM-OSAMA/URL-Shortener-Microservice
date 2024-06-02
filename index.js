@@ -1,15 +1,33 @@
+require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
-
+const UrlDB = require("./db.config");
+const cors = require("cors");
+const isValidUrl = require("./isValid");
+const asyncHandler = require("express-async-handler");
 const app = express();
-const port = 3000;
 
+// Basic Configuration
+const port = process.env.PORT || 3000;
+
+app.use(cors());
+
+app.use("/public", express.static(`${process.cwd()}/public`));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const data = {
+  freecodecamp: { original_url: "https://freecodecamp.org", short_url: 1 },
+  google: { original_url: "https://www.google.com", short_url: 2 },
+  forums: { original_url: "https://forum.freecodecamp.org/", short_url: 3 },
+};
+
+// -------------
 // Connect to MongoDB
+const MONGO_URI = process.env.MONGO_URI;
+
 mongoose
-  .connect("mongodb://localhost/url-shortener", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(MONGO_URI)
   .then(() => {
     console.log("Connected to MongoDB");
   })
@@ -17,56 +35,92 @@ mongoose
     console.error("Error connecting to MongoDB:", error);
   });
 
-// Define the URL model
-const urlSchema = new mongoose.Schema({
-  originalUrl: { type: String, required: true, unique: true },
-  shortUrl: { type: String, required: true, unique: true },
+// ---------
+
+app.get("/", function (req, res) {
+  res.sendFile(process.cwd() + "/views/index.html");
 });
 
-const Url = mongoose.model("Url", urlSchema);
+// Your first API endpoint
+app.get("/api/hello", function (req, res) {
+  res.json({ greeting: "hello API" });
+});
 
-// Create a new short URL
-app.post("/new/*", async (req, res) => {
-  const originalUrl = req.body.url;
-  const shortUrl = req.originalUrl.replace("/new/", "");
+// Second API
+app.post("/api/shorturl", isValidUrl, (req, res) => {
+  const url = req.body.url;
 
-  try {
-    // Check if the URL already exists
-    const existingUrl = await Url.findOne({ originalUrl });
-    if (existingUrl) {
+  // console.log(Number(url))
+
+  for (const key in data) {
+    const element = data[key];
+    const element_original_url = data[key].original_url;
+    const element_short_url = data[key].short_url;
+
+    const convert = Number(url);
+    // console.log(isNaN(convert))
+
+    if (isNaN(convert) === true) {
+      if (element_original_url === url) {
+        return res.json({
+          original_url: element_original_url,
+          short_url: element_short_url,
+        });
+        // return res.json({ element })
+      }
+    }
+    if (element_short_url === Number(url)) {
       return res.json({
-        original_url: existingUrl.originalUrl,
-        short_url: existingUrl.shortUrl,
+        original_url: element_original_url,
+        short_url: element_short_url,
       });
+      // return res.json({ element })
     }
+  }
 
-    // Create a new URL document
-    const newUrl = new Url({
-      originalUrl,
-      shortUrl,
-    });
-    await newUrl.save();
+  return res.status(404).json("No Match!");
+});
 
-    res.json({ original_url: originalUrl, short_url: shortUrl });
+// Third API
+app.get("/api/shorturl/:url", (req, res) => {
+  url = req.params.url;
+  const convert = Number(url);
+
+  try {
+    for (const key in data) {
+      const element = data[key];
+      const element_short_url = data[key].short_url;
+
+      if (element_short_url === convert) {
+        return res.redirect(element.original_url);
+        // return res.redirect('www.google.com')
+      }
+    }
+    return res.status(404).json("No Match!");
   } catch (error) {
-    console.error("Error creating short URL:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.log("error");
   }
 });
 
-// Redirect to the original URL
-app.get("/:shortUrl", async (req, res) => {
-  const shortUrl = req.params.shortUrl;
+app.post(
+  "/add",
+  asyncHandler(async (req, res) => {
+    const original = req.body.original_url;
+    const short = req.body.short_url;
 
-  try {
-    const url = await Url.findOne({ shortUrl });
-    if (url) {
-      return res.redirect(url.originalUrl);
+    try {
+      await UrlDB.create({
+        original_url: original,
+        short_url: short,
+      });
+      res.json(`${original} \n ${short}`);
+    } catch (error) {
+      console.log(error);
+      res.json({ error: error });
     }
+  })
+);
 
-    res.status(404).json({ error: "URL not found" });
-  } catch (error) {
-    console.log(error);
-    res.json({ error });
-  }
+app.listen(port, function () {
+  console.log(`Listening on port ${port}`);
 });
